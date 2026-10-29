@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BoriGlam | Catálogo Digital de Belleza y Perfumería</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bori: {
+                            50: '#fdf8f6',
+                            100: '#fbeee6',
+                            200: '#f5d6cc',
+                            300: '#efb8a5',
+                            400: '#e58767',
+                            500: '#d95d30',
+                            600: '#c4451c',
+                            700: '#a33513',
+                            800: '#842d13',
+                            900: '#6d2813',
+                            gold: '#d4af37',
+                            dark: '#1a1a1a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Firebase App (Modular SDKs via CDN) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            collection, 
+            addQuery, 
+            query, 
+            where, 
+            getDocs, 
+            updateDoc, 
+            orderBy, 
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Configuración oficial de Firebase (BoriGlam)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCP0A01p8WJUPIWOwPKU1a2c6pzS-1VyN4",
+            authDomain: "boriglam-catalog.firebaseapp.com",
+            projectId: "boriglam-catalog",
+            storageBucket: "boriglam-catalog.firebasestorage.app",
+            messagingSenderId: "109637426020",
+            appId: "1:109637426020:web:9af2ba1f2d2b6228fd3871",
+            measurementId: "G-72QX0MPHSE"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Exponer objetos a nivel global para la app
+        window.firebaseApp = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, addDoc: window.addDoc || addQuery, query, where, getDocs, updateDoc, orderBy, serverTimestamp };
+    </script>
+</head>
+<body class="bg-bori-50 text-bori-dark min-h-full flex flex-col font-sans">
+
+    <!-- Header / Barra de Navegación -->
+    <header class="bg-white border-b border-bori-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl font-serif font-bold text-bori-600 tracking-wider">BoriGlam</span>
+                <span class="hidden sm:inline-block text-xs uppercase tracking-widest bg-bori-100 text-bori-700 px-2.5 py-1 rounded-full font-medium">Catálogo Digital</span>
+            </div>
+
+            <!-- Acciones de Usuario / Carrito -->
+            <div class="flex items-center space-x-4">
+                <button onclick="toggleCart()" class="relative bg-bori-100 hover:bg-bori-200 p-2.5 rounded-full transition text-bori-800">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                    <span id="cart-badge" class="absolute -top-1 -right-1 bg-bori-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </button>
+
+                <div id="auth-nav-container">
+                    <button onclick="openAuthModal('login')" class="bg-bori-600 hover:bg-bori-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition">
+                        Iniciar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+        <!-- Banner Principal -->
+        <div class="bg-gradient-to-r from-bori-800 to-bori-600 rounded-3xl p-8 sm:p-12 text-white mb-10 shadow-lg relative overflow-hidden">
+            <div class="relative z-10 max-w-2xl">
+                <span class="bg-bori-gold text-bori-dark text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4 inline-block">Nueva Colección</span>
+                <h1 class="text-4xl sm:text-5xl font-serif font-bold mb-4">Tu Belleza, Tu Esencia, Tu Brillo</h1>
+                <p class="text-bori-100 text-lg mb-6">Explora nuestro catálogo digital de cosméticos, cuidado de la piel y perfumería fina. Haz tu pedido y recíbelo con atención personalizada.</p>
+                <div class="flex flex-wrap gap-4">
+                    <a href="#catalog" class="bg-white text-bori-800 hover:bg-bori-50 font-semibold px-6 py-3 rounded-xl transition shadow">Ver Catálogo</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros y Categorías -->
+        <div id="catalog" class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <div class="flex flex-wrap gap-2 justify-center md:justify-start">
+                <button onclick="filterCategory('all')" class="cat-btn active px-5 py-2 rounded-xl text-sm font-semibold transition bg-bori-600 text-white shadow-sm">Todos</button>
+                <button onclick="filterCategory('color')" class="cat-btn px-5 py-2 rounded-xl text-sm font-semibold transition bg-white text-bori-700 hover:bg-bori-100 border border-bori-200">Cosméticos</button>
+                <button onclick="filterCategory('skin')" class="cat-btn px-5 py-2 rounded-xl text-sm font-semibold transition bg-white text-bori-700 hover:bg-bori-100 border border-bori-200">Skincare</button>
+                <button onclick="filterCategory('scent')" class="cat-btn px-5 py-2 rounded-xl text-sm font-semibold transition bg-white text-bori-700 hover:bg-bori-100 border border-bori-200">Perfumería</button>
+            </div>
+            <div class="w-full md:w-72">
+                <input type="text" id="search-input" oninput="searchProducts()" placeholder="Buscar producto..." class="w-full px-4 py-2.5 bg-white border border-bori-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bori-500 text-sm">
+            </div>
+        </div>
+
+        <!-- Cuadrícula de Productos -->
+        <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Los productos se cargan dinámicamente -->
+        </div>
+
+        <!-- Sección de Mis Pedidos (Visible si hay sesión) -->
+        <div id="user-orders-section" class="mt-16 hidden">
+            <h2 class="text-2xl font-serif font-bold text-bori-900 mb-6">Mis Pedidos Realizados</h2>
+            <div id="user-orders-list" class="space-y-4">
+                <!-- Pedidos del cliente -->
+            </div>
+        </div>
+
+        <!-- Panel de Administración (Visible solo para administradores) -->
+        <div id="admin-panel" class="mt-20 hidden bg-white rounded-3xl p-6 sm:p-8 border border-bori-200 shadow-sm">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <span class="text-xs uppercase font-bold text-bori-600 bg-bori-100 px-3 py-1 rounded-full">Panel de Control</span>
+                    <h2 class="text-2xl font-serif font-bold text-bori-900 mt-2">Pedidos Pendientes de Clientes</h2>
+                </div>
+                <button onclick="loadAdminOrders()" class="bg-bori-100 hover:bg-bori-200 text-bori-800 px-4 py-2 rounded-xl text-sm font-medium transition">Actualizar Lista</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-bori-200 text-xs font-semibold text-bori-600 uppercase">
+                            <th class="py-3 px-4">Ticket ID</th>
+                            <th class="py-3 px-4">Cliente / Email</th>
+                            <th class="py-3 px-4">Productos</th>
+                            <th class="py-3 px-4">Total</th>
+                            <th class="py-3 px-4">Estado</th>
+                            <th class="py-3 px-4 text-right">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-orders-tbody">
+                        <!-- Pedidos en tiempo real -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-bori-200 mt-20 py-8 text-center text-sm text-bori-700">
+        <p>&copy; 2026 BoriGlam Inc. Todos los derechos reservados. Catálogo Digital Inspirado en la Tradición.</p>
+    </footer>
+
+    <!-- Modal de Autenticación (Login / Registro) -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-6 right-6 text-bori-400 hover:text-bori-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <h3 id="auth-modal-title" class="text-2xl font-serif font-bold text-bori-900 mb-2">Iniciar Sesión</h3>
+            <p id="auth-modal-subtitle" class="text-sm text-bori-700 mb-6">Ingresa para realizar y rastrear tus pedidos en BoriGlam.</p>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div id="name-field-container" class="hidden">
+                    <label class="block text-xs font-semibold uppercase text-bori-700 mb-1">Nombre Completo</label>
+                    <input type="text" id="auth-name" class="w-full px-4 py-3 bg-bori-50 border border-bori-200 rounded-xl focus:ring-2 focus:ring-bori-500 text-sm" placeholder="Tu nombre">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-bori-700 mb-1">Correo Electrónico</label>
+                    <input type="email" id="auth-email" required class="w-full px-4 py-3 bg-bori-50 border border-bori-200 rounded-xl focus:ring-2 focus:ring-bori-500 text-sm" placeholder="correo@ejemplo.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-bori-700 mb-1">Contraseña</label>
+                    <input type="password" id="auth-password" required class="w-full px-4 py-3 bg-bori-50 border border-bori-200 rounded-xl focus:ring-2 focus:ring-bori-500 text-sm" placeholder="••••••••">
+                </div>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-bori-600 hover:bg-bori-700 text-white font-semibold py-3 rounded-xl transition shadow-sm">Iniciar Sesión</button>
+            </form>
+
+            <div class="mt-6 text-center text-sm">
+                <p id="auth-toggle-text" class="text-bori-700">¿No tienes cuenta? <button onclick="toggleAuthMode()" class="text-bori-600 font-bold hover:underline">Regístrate aquí</button></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carrito / Hoja Lateral de Pedidos -->
+    <div id="cart-drawer" class="fixed inset-0 z-50 overflow-hidden hidden">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="toggleCart()"></div>
+        <div class="absolute inset-y-0 right-0 max-w-full flex pl-10">
+            <div class="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+                <div class="p-6 border-b border-bori-200 flex items-center justify-between">
+                    <h3 class="text-xl font-serif font-bold text-bori-900">Tu Pedido BoriGlam</h3>
+                    <button onclick="toggleCart()" class="text-bori-400 hover:text-bori-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div id="cart-items-container" class="flex-1 overflow-y-auto p-6 space-y-4">
+                    <!-- Items del carrito -->
+                </div>
+                <div class="p-6 border-t border-bori-200 bg-bori-50">
+                    <div class="flex justify-between text-base font-bold text-bori-900 mb-4">
+                        <span>Total estimado:</span>
+                        <span id="cart-total">$0.00</span>
+                    </div>
+                    <button onclick="checkoutOrder()" class="w-full bg-bori-600 hover:bg-bori-700 text-white font-semibold py-3.5 rounded-xl shadow transition">Confirmar y Enviar Pedido</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Recibo Digital / Ticket -->
+    <div id="receipt-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl relative text-center">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">✓</div>
+            <h3 class="text-2xl font-serif font-bold text-bori-900 mb-1">¡Pedido Registrado con Éxito!</h3>
+            <p class="text-xs text-bori-700 mb-6">Guarda o muestra este recibo al momento de la entrega física con tu distribuidor BoriGlam.</p>
+
+            <div id="receipt-details" class="bg-bori-50 border border-bori-200 rounded-2xl p-4 text-left text-sm mb-6 space-y-2">
+                <!-- Detalles del ticket -->
+            </div>
+
+            <button onclick="closeReceiptModal()" class="w-full bg-bori-600 text-white font-semibold py-3 rounded-xl hover:bg-bori-700 transition">Entendido, ver mis pedidos</button>
+        </div>
+    </div>
+
+    <!-- Script Principal de Lógica -->
+    <script>
+        // Catálogo de productos BoriGlam
+        const products = [
+            { id: '1', name: 'BoriGlam Satin Foundation', category: 'color', price: 28.50, desc: 'Base fluida de alta cobertura con acabado satinado natural.', image: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&q=80&w=600' },
+            { id: '2', name: 'Labial Mousse Long-Wear', category: 'color', price: 16.00, desc: 'Labial mate aterciopelado de larga duración sin resecar.', image: 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&q=80&w=600' },
+            { id: '3', name: 'Paleta Sombras Cálidas Sol', category: 'color', price: 34.00, desc: '12 tonos altamente pigmentados entre mates y metalizados.', image: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&q=80&w=600' },
+            { id: '4', name: 'Sérum Ácido Hialurónico Skin', category: 'skin', price: 32.00, desc: 'Hidratación profunda y efecto plump inmediato.', image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=600' },
+            { id: '5', name: 'Gel Limpiador Botánico', category: 'skin', price: 22.00, desc: 'Limpieza suave con extractos naturales para todo tipo de piel.', image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=600' },
+            { id: '6', name: 'BoriGlam Signature Parfum', category: 'scent', price: 45.00, desc: 'Fragancia floral-frutal sofisticada de larga duración.', image: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&q=80&w=600' },
+            { id: '7', name: 'Vanilla Touch Body Spray', category: 'scent', price: 18.50, desc: 'Bruma corporal dulce y envolvente para el día a día.', image: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&q=80&w=600' }
+        ];
+
+        let cart = [];
+        let currentUser = null;
+        let isRegistering = false;
+
+        // Renderizar productos al cargar
+        window.addEventListener('DOMContentLoaded', () => {
+            renderProducts(products);
+
+            // Escuchar cambios de autenticación en Firebase
+            const checkFirebaseReady = setInterval(() => {
+                if (window.firebaseApp) {
+                    clearInterval(checkFirebaseReady);
+                    const { auth, onAuthStateChanged, db, doc, getDoc } = window.firebaseApp;
+                    
+                    onAuthStateChanged(auth, async (user) => {
+                        currentUser = user;
+                        const navContainer = document.getElementById('auth-nav-container');
+                        const userOrdersSection = document.getElementById('user-orders-section');
+                        const adminPanel = document.getElementById('admin-panel');
+
+                        if (user) {
+                            // Buscar datos adicionales en Firestore
+                            let userName = user.email;
+                            try {
+                                const userDoc = await getDoc(doc(db, "users", user.uid));
+                                if (userDoc.exists()) {
+                                    userName = userDoc.data().name || user.email;
+                                }
+                            } catch(e) { console.error(e); }
+
+                            navContainer.innerHTML = `
+                                <div class="flex items-center space-x-3">
+                                    <span class="text-sm font-semibold text-bori-800 hidden sm:inline">Hola, ${userName}</span>
+                                    <button onclick="handleLogout()" class="bg-bori-100 hover:bg-bori-200 text-bori-800 px-4 py-2 rounded-xl text-sm font-medium transition">Cerrar Sesión</button>
+                                </div>
+                            `;
+                            userOrdersSection.classList.remove('hidden');
+                            loadUserOrders(user.uid);
+
+                            // Verificar si es Admin (puedes cambiar este email por el tuyo)
+                            if (user.email === 'admin@boriglam.com' || user.email.includes('admin')) {
+                                adminPanel.classList.remove('hidden');
+                                loadAdminOrders();
+                            }
+                        } else {
+                            navContainer.innerHTML = `
+                                <button onclick="openAuthModal('login')" class="bg-bori-600 hover:bg-bori-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition">
+                                    Iniciar Sesión
+                                </button>
+                            `;
+                            userOrdersSection.classList.add('hidden');
+                            adminPanel.classList.add('hidden');
+                        }
+                    });
+                }
+            }, 200);
+        });
+
+        function renderProducts(items) {
+            const grid = document.getElementById('products-grid');
+            if (items.length === 0) {
+                grid.innerHTML = `<p class="col-span-full text-center text-bori-700 py-12">No se encontraron productos.</p>`;
+                return;
+            }
+            grid.innerHTML = items.map(p => `
+                <div class="bg-white rounded-3xl border border-bori-200 overflow-hidden shadow-sm hover:shadow-md transition flex flex-col">
+                    <div class="h-64 overflow-hidden bg-bori-100 relative">
+                        <img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover">
+                        <span class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-bori-800 text-xs font-bold px-3 py-1 rounded-full uppercase">${p.category}</span>
+                    </div>
+                    <div class="p-6 flex-1 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-lg font-serif font-bold text-bori-900 mb-1">${p.name}</h3>
+                            <p class="text-sm text-bori-700 mb-4">${p.desc}</p>
+                        </div>
+                        <div class="flex items-center justify-between mt-4 pt-4 border-t border-bori-100">
+                            <span class="text-xl font-bold text-bori-900">$${p.price.toFixed(2)}</span>
+                            <button onclick="addToCart('${p.id}')" class="bg-bori-600 hover:bg-bori-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm">Añadir</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterCategory(cat) {
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('bg-bori-600', 'text-white', 'shadow-sm');
+                btn.classList.add('bg-white', 'text-bori-700', 'border', 'border-bori-200');
+            });
+            event.target.classList.remove('bg-white', 'text-bori-700', 'border', 'border-bori-200');
+            event.target.classList.add('bg-bori-600', 'text-white', 'shadow-sm');
+
+            if (cat === 'all') {
+                renderProducts(products);
+            } else {
+                renderProducts(products.filter(p => p.category === cat));
+            }
+        }
+
+        function searchProducts() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = products.filter(p => p.name.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query));
+            renderProducts(filtered);
+        }
+
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            const existing = cart.find(item => item.id === productId);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ ...product, qty: 1 });
+            }
+            updateCartUI();
+            toggleCart();
+        }
+
+        function updateCartUI() {
+            const badge = document.getElementById('cart-badge');
+            const container = document.getElementById('cart-items-container');
+            const totalEl = document.getElementById('cart-total');
+
+            const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+            badge.innerText = totalItems;
+
+            if (cart.length === 0) {
+                container.innerHTML = `<p class="text-center text-bori-700 py-8">Tu carrito está vacío.</p>`;
+                totalEl.innerText = '$0.00';
+                return;
+            }
+
+            container.innerHTML = cart.map(item => `
+                flex items-center justify-between bg-bori-50 p-4 rounded-2xl border border-bori-200
+                <div class="flex items-center space-x-3">
+                    <img src="${item.image}" class="w-12 h-12 object-cover rounded-xl">
+                    <div>
+                        <h4 class="text-sm font-bold text-bori-900">${item.name}</h4>
+                        <p class="text-xs text-bori-700">$${item.price.toFixed(2)} x ${item.qty}</p>
+                    </div>
+                </div>
+                <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700 text-xs font-semibold">Eliminar</button>
+            `).join('');
+
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            totalEl.innerText = `$${total.toFixed(2)}`;
+        }
+
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            updateCartUI();
+        }
+
+        function toggleCart() {
+            const drawer = document.getElementById('cart-drawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        // Modales de Auth
+        function openAuthModal(mode) {
+            isRegistering = (mode === 'register');
+            document.getElementById('auth-modal-title').innerText = isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión';
+            document.getElementById('auth-modal-subtitle').innerText = isRegistering ? 'Regístrate para guardar tus pedidos en BoriGlam.' : 'Ingresa para realizar tus pedidos.';
+            document.getElementById('auth-submit-btn').innerText = isRegistering ? 'Registrarse' : 'Iniciar Sesión';
+            document.getElementById('name-field-container').classList.toggle('hidden', !isRegistering);
+            document.getElementById('auth-toggle-text').innerHTML = isRegistering ? 
+                `¿Ya tienes cuenta? <button onclick="openAuthModal('login')" class="text-bori-600 font-bold hover:underline">Inicia sesión</button>` :
+                `¿No tienes cuenta? <button onclick="openAuthModal('register')" class="text-bori-600 font-bold hover:underline">Regístrate aquí</button>`;
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+        }
+
+        function toggleAuthMode() {
+            openAuthModal(isRegistering ? 'login' : 'register');
+        }
+
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const name = document.getElementById('auth-name').value;
+            const { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, doc, setDoc } = window.firebaseApp;
+
+            try {
+                if (isRegistering) {
+                    const cred = await createUserWithEmailAndPassword(auth, email, password);
+                    await setDoc(doc(db, "users", cred.user.uid), {
+                        name: name || email.split('@')[0],
+                        email: email,
+                        createdAt: new Date()
+                    });
+                    alert('¡Cuenta creada con éxito!');
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+                closeAuthModal();
+            } catch (error) {
+                alert('Error de autenticación: ' + error.message);
+            }
+        }
+
+        async function handleLogout() {
+            const { auth, signOut } = window.firebaseApp;
+            await signOut(auth);
+            cart = [];
+            updateCartUI();
+        }
+
+        // Checkout y Guardado en Firestore
+        async function checkoutOrder() {
+            if (!currentUser) {
+                alert('Por favor, inicia sesión para confirmar tu pedido.');
+                toggleCart();
+                openAuthModal('login');
+                return;
+            }
+            if (cart.length === 0) {
+                alert('Tu carrito está vacío.');
+                return;
+            }
+
+            const { db, collection, addDoc, serverTimestamp } = window.firebaseApp;
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const ticketId = 'BG-' + Math.floor(100000 + Math.random() * 900000);
+
+            const orderData = {
+                ticketId: ticketId,
+                userId: currentUser.uid,
+                userEmail: currentUser.email,
+                items: cart,
+                total: total,
+                status: 'pendiente',
+                createdAt: serverTimestamp()
+            };
+
+            try {
+                await addDoc(collection(db, "orders"), orderData);
+                
+                // Mostrar Recibo
+                document.getElementById('receipt-details').innerHTML = `
+                    <p><strong>Ticket ID:</strong> <span class="text-bori-600 font-mono font-bold">${ticketId}</span></p>
+                    <p><strong>Cliente:</strong> ${currentUser.email}</p>
+                    <p><strong>Total:</strong> $${total.toFixed(2)}</p>
+                    <p><strong>Estado:</strong> <span class="text-amber-600 font-semibold uppercase">Pendiente de Entrega</span></p>
+                `;
+                
+                cart = [];
+                updateCartUI();
+                toggleCart();
+                document.getElementById('receipt-modal').classList.remove('hidden');
+                loadUserOrders(currentUser.uid);
+            } catch (e) {
+                alert('Error al procesar el pedido: ' + e.message);
+            }
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').classList.add('hidden');
+        }
+
+        async function loadUserOrders(userId) {
+            const { db, collection, query, where, getDocs, orderBy } = window.firebaseApp;
+            const container = document.getElementById('user-orders-list');
+            try {
+                const q = query(collection(db, "orders"), where("userId", "==", userId));
+                const querySnapshot = await getDocs(q);
+                
+                if (querySnapshot.empty) {
+                    container.innerHTML = `<p class="text-sm text-bori-700">No tienes pedidos registrados aún.</p>`;
+                    return;
+                }
+
+                let html = '';
+                querySnapshot.forEach((docSnap) => {
+                    const order = docSnap.data();
+                    const statusColor = order.status === 'entregado' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+                    html += `
+                        <div class="bg-white p-6 rounded-2xl border border-bori-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <div class="flex items-center space-x-3 mb-1">
+                                    <span class="font-mono font-bold text-bori-900">${order.ticketId}</span>
+                                    <span class="text-xs uppercase font-bold px-2.5 py-0.5 rounded-full ${statusColor}">${order.status}</span>
+                                </div>
+                                <p class="text-xs text-bori-700">${order.items.length} producto(s) - Total: $${order.total.toFixed(2)}</p>
+                            </div>
+                            <div class="text-xs text-bori-700">
+                                Muestra tu Ticket ID al recibir tus productos.
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (e) {
+                console.error("Error cargando pedidos:", e);
+            }
+        }
+
+        async function loadAdminOrders() {
+            const { db, collection, getDocs, updateDoc, doc } = window.firebaseApp;
+            const tbody = document.getElementById('admin-orders-tbody');
+            try {
+                const querySnapshot = await getDocs(collection(db, "orders"));
+                if (querySnapshot.empty) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-bori-700">No hay pedidos en la base de datos.</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                querySnapshot.forEach((docSnap) => {
+                    const order = docSnap.data();
+                    const orderId = docSnap.id;
+                    const itemsDesc = order.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+                    const statusColor = order.status === 'entregado' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+
+                    html += `
+                        <tr class="border-b border-bori-100 text-sm">
+                            <td class="py-4 px-4 font-mono font-bold text-bori-900">${order.ticketId}</td>
+                            <td class="py-4 px-4 text-bori-800">${order.userEmail}</td>
+                            <td class="py-4 px-4 text-bori-700 max-w-xs truncate">${itemsDesc}</td>
+                            <td class="py-4 px-4 font-bold text-bori-900">$${order.total.toFixed(2)}</td>
+                            <td class="py-4 px-4"><span class="px-2.5 py-1 rounded-full text-xs uppercase font-bold ${statusColor}">${order.status}</span></td>
+                            <td class="py-4 px-4 text-right">
+                                ${order.status !== 'entregado' ? `<button onclick="markAsDelivered('${orderId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition">Marcar Entregado</button>` : '<span class="text-xs text-emerald-600 font-semibold">Completado</span>'}
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            } catch (e) {
+                console.error("Error admin:", e);
+            }
+        }
+
+        async function markAsDelivered(orderId) {
+            const { db, updateDoc, doc } = window.firebaseApp;
+            try {
+                await updateDoc(doc(db, "orders", orderId), { status: 'entregado' });
+                alert('Pedido marcado como entregado con éxito.');
+                loadAdminOrders();
+            } catch (e) {
+                alert('Error al actualizar: ' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
+
