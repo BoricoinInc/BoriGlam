@@ -46,7 +46,7 @@
             setDoc, 
             getDoc, 
             collection, 
-            addQuery, 
+            addDoc, 
             query, 
             where, 
             getDocs, 
@@ -72,7 +72,7 @@
         const db = getFirestore(app);
 
         // Exponer objetos a nivel global para la app
-        window.firebaseApp = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, addDoc: window.addDoc || addQuery, query, where, getDocs, updateDoc, orderBy, serverTimestamp };
+        window.firebaseApp = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, updateDoc, orderBy, serverTimestamp };
     </script>
 </head>
 <body class="bg-bori-50 text-bori-dark min-h-full flex flex-col font-sans">
@@ -281,7 +281,6 @@
                         const adminPanel = document.getElementById('admin-panel');
 
                         if (user) {
-                            // Buscar datos adicionales en Firestore
                             let userName = user.email;
                             try {
                                 const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -299,7 +298,7 @@
                             userOrdersSection.classList.remove('hidden');
                             loadUserOrders(user.uid);
 
-                            // Verificar si es Admin (puedes cambiar este email por el tuyo)
+                            // Verificar si es Admin
                             if (user.email === 'admin@boriglam.com' || user.email.includes('admin')) {
                                 adminPanel.classList.remove('hidden');
                                 loadAdminOrders();
@@ -392,15 +391,16 @@
             }
 
             container.innerHTML = cart.map(item => `
-                flex items-center justify-between bg-bori-50 p-4 rounded-2xl border border-bori-200
-                <div class="flex items-center space-x-3">
-                    <img src="${item.image}" class="w-12 h-12 object-cover rounded-xl">
-                    <div>
-                        <h4 class="text-sm font-bold text-bori-900">${item.name}</h4>
-                        <p class="text-xs text-bori-700">$${item.price.toFixed(2)} x ${item.qty}</p>
+                <div class="flex items-center justify-between bg-bori-50 p-4 rounded-2xl border border-bori-200">
+                    <div class="flex items-center space-x-3">
+                        <img src="${item.image}" class="w-12 h-12 object-cover rounded-xl">
+                        <div>
+                            <h4 class="text-sm font-bold text-bori-900">${item.name}</h4>
+                            <p class="text-xs text-bori-700">$${item.price.toFixed(2)} x ${item.qty}</p>
+                        </div>
                     </div>
+                    <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700 text-xs font-semibold">Eliminar</button>
                 </div>
-                <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700 text-xs font-semibold">Eliminar</button>
             `).join('');
 
             const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -417,7 +417,6 @@
             drawer.classList.toggle('hidden');
         }
 
-        // Modales de Auth
         function openAuthModal(mode) {
             isRegistering = (mode === 'register');
             document.getElementById('auth-modal-title').innerText = isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión';
@@ -470,7 +469,6 @@
             updateCartUI();
         }
 
-        // Checkout y Guardado en Firestore
         async function checkoutOrder() {
             if (!currentUser) {
                 alert('Por favor, inicia sesión para confirmar tu pedido.');
@@ -500,7 +498,6 @@
             try {
                 await addDoc(collection(db, "orders"), orderData);
                 
-                // Mostrar Recibo
                 document.getElementById('receipt-details').innerHTML = `
                     <p><strong>Ticket ID:</strong> <span class="text-bori-600 font-mono font-bold">${ticketId}</span></p>
                     <p><strong>Cliente:</strong> ${currentUser.email}</p>
@@ -523,7 +520,7 @@
         }
 
         async function loadUserOrders(userId) {
-            const { db, collection, query, where, getDocs, orderBy } = window.firebaseApp;
+            const { db, collection, query, where, getDocs } = window.firebaseApp;
             const container = document.getElementById('user-orders-list');
             try {
                 const q = query(collection(db, "orders"), where("userId", "==", userId));
@@ -560,7 +557,7 @@
         }
 
         async function loadAdminOrders() {
-            const { db, collection, getDocs, updateDoc, doc } = window.firebaseApp;
+            const { db, collection, getDocs } = window.firebaseApp;
             const tbody = document.getElementById('admin-orders-tbody');
             try {
                 const querySnapshot = await getDocs(collection(db, "orders"));
