@@ -131,7 +131,8 @@
 
         <!-- Cuadrícula de Productos -->
         <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            <!-- Los productos se cargan dinámicamente -->
+            <!-- Los productos se cargan dinámicamente desde Firestore -->
+            <p class="col-span-full text-center text-bori-700 py-12">Cargando catálogo desde la base de datos...</p>
         </div>
 
         <!-- Sección de Mis Pedidos (Visible si hay sesión) -->
@@ -249,26 +250,15 @@
 
     <!-- Script Principal de Lógica -->
     <script>
-        // Catálogo de productos BoriGlam
-        const products = [
-            { id: '1', name: 'BoriGlam Satin Foundation', category: 'color', price: 28.50, desc: 'Base fluida de alta cobertura con acabado satinado natural.', image: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&q=80&w=600' },
-            { id: '2', name: 'Labial Mousse Long-Wear', category: 'color', price: 16.00, desc: 'Labial mate aterciopelado de larga duración sin resecar.', image: 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&q=80&w=600' },
-            { id: '3', name: 'Paleta Sombras Cálidas Sol', category: 'color', price: 34.00, desc: '12 tonos altamente pigmentados entre mates y metalizados.', image: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&q=80&w=600' },
-            { id: '4', name: 'Sérum Ácido Hialurónico Skin', category: 'skin', price: 32.00, desc: 'Hidratación profunda y efecto plump inmediato.', image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=600' },
-            { id: '5', name: 'Gel Limpiador Botánico', category: 'skin', price: 22.00, desc: 'Limpieza suave con extractos naturales para todo tipo de piel.', image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=600' },
-            { id: '6', name: 'BoriGlam Signature Parfum', category: 'scent', price: 45.00, desc: 'Fragancia floral-frutal sofisticada de larga duración.', image: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&q=80&w=600' },
-            { id: '7', name: 'Vanilla Touch Body Spray', category: 'scent', price: 18.50, desc: 'Bruma corporal dulce y envolvente para el día a día.', image: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&q=80&w=600' }
-        ];
-
+        let products = [];
         let cart = [];
         let currentUser = null;
         let isRegistering = false;
 
-        // Renderizar productos al cargar
+        // Cargar productos desde Firestore y vigilar autenticación al iniciar
         window.addEventListener('DOMContentLoaded', () => {
-            renderProducts(products);
+            loadProductsFromFirestore();
 
-            // Escuchar cambios de autenticación en Firebase
             const checkFirebaseReady = setInterval(() => {
                 if (window.firebaseApp) {
                     clearInterval(checkFirebaseReady);
@@ -298,8 +288,8 @@
                             userOrdersSection.classList.remove('hidden');
                             loadUserOrders(user.uid);
 
-                            // Verificar si es Admin
-                            if (user.email === 'admin@boriglam.com' || user.email.includes('admin')) {
+                            // Panel de Administrador para tu correo
+                            if (user.email === 'zylom44jl@gmail.com' || user.email.includes('admin')) {
                                 adminPanel.classList.remove('hidden');
                                 loadAdminOrders();
                             }
@@ -317,10 +307,31 @@
             }, 200);
         });
 
+        // Obtener productos desde Firestore
+        async function loadProductsFromFirestore() {
+            const checkDbReady = setInterval(async () => {
+                if (window.firebaseApp && window.firebaseApp.db) {
+                    clearInterval(checkDbReady);
+                    const { db, collection, getDocs } = window.firebaseApp;
+                    try {
+                        const querySnapshot = await getDocs(collection(db, "products"));
+                        products = [];
+                        querySnapshot.forEach((docSnap) => {
+                            products.push({ id: docSnap.id, ...docSnap.data() });
+                        });
+                        renderProducts(products);
+                    } catch (e) {
+                        console.error("Error cargando productos de Firestore:", e);
+                        document.getElementById('products-grid').innerHTML = `<p class="col-span-full text-center text-bori-700 py-12">Error al cargar el catálogo. Asegúrate de crear la colección 'products' en Firestore.</p>`;
+                    }
+                }
+            }, 200);
+        }
+
         function renderProducts(items) {
             const grid = document.getElementById('products-grid');
             if (items.length === 0) {
-                grid.innerHTML = `<p class="col-span-full text-center text-bori-700 py-12">No se encontraron productos.</p>`;
+                grid.innerHTML = `<p class="col-span-full text-center text-bori-700 py-12">No hay productos disponibles en este momento.</p>`;
                 return;
             }
             grid.innerHTML = items.map(p => `
@@ -335,7 +346,7 @@
                             <p class="text-sm text-bori-700 mb-4">${p.desc}</p>
                         </div>
                         <div class="flex items-center justify-between mt-4 pt-4 border-t border-bori-100">
-                            <span class="text-xl font-bold text-bori-900">$${p.price.toFixed(2)}</span>
+                            <span class="text-xl font-bold text-bori-900">$${Number(p.price).toFixed(2)}</span>
                             <button onclick="addToCart('${p.id}')" class="bg-bori-600 hover:bg-bori-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm">Añadir</button>
                         </div>
                     </div>
@@ -396,14 +407,14 @@
                         <img src="${item.image}" class="w-12 h-12 object-cover rounded-xl">
                         <div>
                             <h4 class="text-sm font-bold text-bori-900">${item.name}</h4>
-                            <p class="text-xs text-bori-700">$${item.price.toFixed(2)} x ${item.qty}</p>
+                            <p class="text-xs text-bori-700">$${Number(item.price).toFixed(2)} x ${item.qty}</p>
                         </div>
                     </div>
                     <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700 text-xs font-semibold">Eliminar</button>
                 </div>
             `).join('');
 
-            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const total = cart.reduce((sum, item) => sum + (Number(item.price) * item.qty), 0);
             totalEl.innerText = `$${total.toFixed(2)}`;
         }
 
@@ -482,7 +493,7 @@
             }
 
             const { db, collection, addDoc, serverTimestamp } = window.firebaseApp;
-            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const total = cart.reduce((sum, item) => sum + (Number(item.price) * item.qty), 0);
             const ticketId = 'BG-' + Math.floor(100000 + Math.random() * 900000);
 
             const orderData = {
@@ -542,7 +553,7 @@
                                     <span class="font-mono font-bold text-bori-900">${order.ticketId}</span>
                                     <span class="text-xs uppercase font-bold px-2.5 py-0.5 rounded-full ${statusColor}">${order.status}</span>
                                 </div>
-                                <p class="text-xs text-bori-700">${order.items.length} producto(s) - Total: $${order.total.toFixed(2)}</p>
+                                <p class="text-xs text-bori-700">${order.items.length} producto(s) - Total: $${Number(order.total).toFixed(2)}</p>
                             </div>
                             <div class="text-xs text-bori-700">
                                 Muestra tu Ticket ID al recibir tus productos.
@@ -578,7 +589,7 @@
                             <td class="py-4 px-4 font-mono font-bold text-bori-900">${order.ticketId}</td>
                             <td class="py-4 px-4 text-bori-800">${order.userEmail}</td>
                             <td class="py-4 px-4 text-bori-700 max-w-xs truncate">${itemsDesc}</td>
-                            <td class="py-4 px-4 font-bold text-bori-900">$${order.total.toFixed(2)}</td>
+                            <td class="py-4 px-4 font-bold text-bori-900">$${Number(order.total).toFixed(2)}</td>
                             <td class="py-4 px-4"><span class="px-2.5 py-1 rounded-full text-xs uppercase font-bold ${statusColor}">${order.status}</span></td>
                             <td class="py-4 px-4 text-right">
                                 ${order.status !== 'entregado' ? `<button onclick="markAsDelivered('${orderId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition">Marcar Entregado</button>` : '<span class="text-xs text-emerald-600 font-semibold">Completado</span>'}
